@@ -53,7 +53,7 @@ func PrintBoard(b Board) error {
 	return nil
 }
 
-// TakeTurn demande au joueur son coup et l'applique au plateau. Retourne false si l'action n'est pas possible
+// TakeTurn demande au joueur son coup et l'applique au plateau. Retourne -1 si l'action n'est pas possible, 0 si le joueur souhaite sauvegarder, et 1 s'il a joué un coup légal
 func TakeTurn(p Player, b *Board) int {
 	PrintBoard(*b)
 	fmt.Printf("Joueur %d : Quelle case voulez-vous jouer ? (0 pour sauvegarder et quitter)\n", p+1)
@@ -88,7 +88,7 @@ func TakeTurn(p Player, b *Board) int {
 	return 1
 }
 
-// Retourne 2 si la partie n'est pas fini, 0 ou 1 selon le joueur qui a gagné
+// isOver retourne 2 si la partie n'est pas fini, 0 ou 1 selon le joueur qui a gagné
 func isOver(b Board) int {
 	if hasWon(1, b) {
 		return 1
@@ -99,7 +99,7 @@ func isOver(b Board) int {
 	return 2
 }
 
-// retourne true si le joueur p a gagné
+// hasWon retourne true si le joueur p a gagné
 func hasWon(p Player, b Board) bool {
 	diagonal1Win := 1
 	diagonal2Win := 1
@@ -129,6 +129,8 @@ func hasWon(p Player, b Board) bool {
 	}
 	return false
 }
+
+// isNull renvoie true si la partie est nulle (i.e le plateau est rempli)
 func isNull(b Board) bool {
 	for _, l := range b {
 		for _, s := range l {
@@ -140,6 +142,7 @@ func isNull(b Board) bool {
 	}
 	return true
 }
+
 
 func saveGame(gs *Gamestate) {
 	jsonGamestate, _ := json.MarshalIndent(*gs, "", "  ")
