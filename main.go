@@ -32,6 +32,10 @@ type Gamestate struct {
 	ToPlay Player `json:"to_play"`
 }
 
+const Reset = "\033[0m"
+const Red = "\033[31m"
+const Blue = "\033[34m"
+
 // GetLine renvoie une ligne du plateau entré en paramètre sous forme de string.
 func GetLine(n int, b Board) string {
 	s := ""
@@ -55,10 +59,23 @@ func GetLine(n int, b Board) string {
 
 // PrintBoard affiche l'état du plateau entré en paramètre
 func PrintBoard(b Board) error {
-	fmt.Printf("%s\n", strings.Repeat("*", 20))
+	fmt.Printf("%s\n", strings.Repeat("*", 21))
 	for i := 0; i < BoardSize; i++ {
 		line := GetLine(i, b)
-		fmt.Printf("%14s\n", line)
+		print(strings.Repeat(" ", 8))
+		for _, c := range line {
+			switch c {
+			case 'o':
+				fmt.Print(Red + "o" + Reset)
+				break
+			case 'x':
+				fmt.Print(Blue + "x" + Reset)
+
+			default:
+				fmt.Printf("%c", c)
+			}
+		}
+		println()
 	}
 	fmt.Printf("%s\n", strings.Repeat("*", 20))
 	return nil
@@ -129,6 +146,7 @@ func hasWon(p Player, b Board) bool {
 				verticalWin = 0
 			}
 		}
+
 		if horizontalWin == 1 || verticalWin == 1 {
 			return true
 		}
