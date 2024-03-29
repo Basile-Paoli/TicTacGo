@@ -108,8 +108,8 @@ func isOver(b Board) Player {
 	if hasWon(Player1, b) {
 		return Player1
 	}
-	if hasWon(Player1, b) {
-		return Player1
+	if hasWon(Player2, b) {
+		return Player2
 	}
 	return NullPlayer
 }
