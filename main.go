@@ -9,12 +9,23 @@ import (
 )
 
 type Board [BoardSize][BoardSize]Player
+
+func emptyGamestate(gs *Gamestate) {
+	for i := 0; i < BoardSize; i++ {
+		for j := 0; j < BoardSize; j++ {
+			gs.B[i][j] = NullPlayer
+		}
+	}
+
+	gs.ToPlay = Player1
+}
+
 type Player int
 
-const BoardSize = 4
+const BoardSize = 3
 const Player1 Player = 0
 const Player2 Player = 1
-const Empty Player = -1
+const NullPlayer Player = -1
 
 type Gamestate struct {
 	B      Board  `json:"b"`
@@ -32,7 +43,7 @@ func GetLine(n int, b Board) string {
 		case Player2:
 			s += "x "
 			break
-		case Empty:
+		case NullPlayer:
 			s += "- "
 			break
 		}
@@ -56,7 +67,7 @@ func PrintBoard(b Board) error {
 // TakeTurn demande au joueur son coup et l'applique au plateau. Retourne -1 si l'action n'est pas possible, 0 si le joueur souhaite sauvegarder, et 1 s'il a joué un coup légal
 func TakeTurn(p Player, b *Board) int {
 	PrintBoard(*b)
-	fmt.Printf("Joueur %d : Quelle case voulez-vous jouer ? (0 pour sauvegarder et quitter)\n", p+1)
+	fmt.Printf("Joueur %d : Quelle case voulez-vous jouer ? (1-9 | 0 pour sauvegarder et quitter)\n", p+1)
 	var tile int
 	var input string
 	_, err := fmt.Scanln(&input)
@@ -65,6 +76,7 @@ func TakeTurn(p Player, b *Board) int {
 	}
 	tile, err = strconv.Atoi(input)
 	if err != nil {
+		println("Saisie invalide")
 		return -1
 	}
 	if tile == 0 {
@@ -74,29 +86,32 @@ func TakeTurn(p Player, b *Board) int {
 		}
 		saveGame(&gs)
 		println("Partie sauvegardée")
-		return 0
+		fmt.Scanln()
+		os.Exit(0)
 	}
 	if tile > BoardSize*BoardSize || tile < 1 {
+		println("Saisie invalide")
 		return -1
 	}
 	x := (tile - 1) / BoardSize
 	y := (tile - 1) % BoardSize
-	if (*b)[x][y] != Empty {
+	if (*b)[x][y] != NullPlayer {
+		println("Case non vide")
 		return -1
 	}
 	(*b)[x][y] = p
 	return 1
 }
 
-// isOver retourne 2 si la partie n'est pas fini, 0 ou 1 selon le joueur qui a gagné
-func isOver(b Board) int {
-	if hasWon(1, b) {
-		return 1
+// isOver retourne -1 si la partie n'est pas fini, 0 ou 1 selon le joueur qui a gagné
+func isOver(b Board) Player {
+	if hasWon(Player1, b) {
+		return Player1
 	}
-	if hasWon(0, b) {
-		return 0
+	if hasWon(Player1, b) {
+		return Player1
 	}
-	return 2
+	return NullPlayer
 }
 
 // hasWon retourne true si le joueur p a gagné
@@ -134,7 +149,7 @@ func hasWon(p Player, b Board) bool {
 func isNull(b Board) bool {
 	for _, l := range b {
 		for _, s := range l {
-			if s == Empty {
+			if s == NullPlayer {
 				return false
 			}
 		}
@@ -142,7 +157,6 @@ func isNull(b Board) bool {
 	}
 	return true
 }
-
 
 func saveGame(gs *Gamestate) {
 	jsonGamestate, _ := json.MarshalIndent(*gs, "", "  ")
@@ -160,43 +174,59 @@ func loadGame(gs *Gamestate) error {
 	return nil
 }
 
-func main() {
-	gs := Gamestate{
-		B:      Board{},
-		ToPlay: 0,
-	}
-	err := loadGame(&gs)
-	os.WriteFile("save.json", []byte{}, 0644)
-	if err != nil {
-		for i := 0; i < BoardSize; i++ {
-			for j := 0; j < BoardSize; j++ {
-				gs.B[i][j] = Empty
-			}
-		}
-
-		gs.ToPlay = Player1
-	}
-
+// playGame fait jouer une partie et renvoie le numéro du joueurs gagnant, ou -1 en cas de nulle
+func playGame(gs *Gamestate) Player {
 	for {
 		n := TakeTurn(gs.ToPlay, &gs.B)
 		if n == -1 {
 			continue
 		}
-		if n == 0 {
-			break
-		}
-		if isOver(gs.B) != 2 {
+		if isOver(gs.B) != NullPlayer {
 			PrintBoard(gs.B)
-			fmt.Printf("Le joueur %d a gagné\n", isOver(gs.B)+1)
-			break
+			winningPlayer := isOver(gs.B)
+			fmt.Printf("Le joueur %d a gagné, ", winningPlayer+1)
+			return winningPlayer
 		}
 		if isNull(gs.B) {
 			PrintBoard(gs.B)
-			println("Partie nulle")
-			break
+			print("Partie nulle, ")
+			return NullPlayer
 		}
 		gs.ToPlay = 1 - gs.ToPlay
 	}
-	fmt.Scanln()
+
+}
+
+func main() {
+	gs := Gamestate{}
+	err := loadGame(&gs)
+	if err != nil {
+		emptyGamestate(&gs)
+	}
+	os.WriteFile("save.json", []byte{}, 0644)
+	score := []int{0, 0}
+	for {
+		switch playGame(&gs) {
+		case Player1:
+			score[0] += 1
+		case Player2:
+			score[1] += 1
+		}
+		println("score : ", score[0], " - ", score[1])
+	out:
+		for {
+			println("1 - Rejouer\n2 - Quitter")
+			var rep string
+			fmt.Scanln(&rep)
+			switch rep {
+			case "1":
+				emptyGamestate(&gs)
+				break out
+			case "2":
+				os.Exit(0)
+			}
+
+		}
+	}
 
 }
