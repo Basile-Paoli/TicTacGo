@@ -10,16 +10,6 @@ import (
 
 type Board [BoardSize][BoardSize]Player
 
-func emptyGamestate(gs *Gamestate) {
-	for i := 0; i < BoardSize; i++ {
-		for j := 0; j < BoardSize; j++ {
-			gs.B[i][j] = NullPlayer
-		}
-	}
-
-	gs.ToPlay = Player1
-}
-
 type Player int
 
 const BoardSize = 3
@@ -28,13 +18,25 @@ const Player2 Player = 1
 const NullPlayer Player = -1
 
 type Gamestate struct {
-	B      Board  `json:"b"`
+	Board  Board  `json:"b"`
 	ToPlay Player `json:"to_play"`
+	Score  [2]int `json:"score"`
 }
 
 const Reset = "\033[0m"
 const Red = "\033[31m"
 const Blue = "\033[34m"
+
+// resetBoard initialise l'état de la partie
+func resetBoard(gs *Gamestate) {
+	for i := 0; i < BoardSize; i++ {
+		for j := 0; j < BoardSize; j++ {
+			gs.Board[i][j] = NullPlayer
+		}
+	}
+
+	gs.ToPlay = Player1
+}
 
 // GetLine renvoie une ligne du plateau entré en paramètre sous forme de string.
 func GetLine(n int, b Board) string {
@@ -82,9 +84,9 @@ func PrintBoard(b Board) error {
 }
 
 // TakeTurn demande au joueur son coup et l'applique au plateau. Retourne -1 si l'action n'est pas possible, 0 si le joueur souhaite sauvegarder, et 1 s'il a joué un coup légal
-func TakeTurn(p Player, b *Board) int {
-	PrintBoard(*b)
-	fmt.Printf("Joueur %d : Quelle case voulez-vous jouer ? (1-9 | 0 pour sauvegarder et quitter)\n", p+1)
+func TakeTurn(gs *Gamestate) int {
+	PrintBoard(gs.Board)
+	fmt.Printf("Joueur %d : Quelle case voulez-vous jouer ? (1-9 | 0 pour sauvegarder et quitter)\n", gs.ToPlay+1)
 	var tile int
 	var input string
 	_, err := fmt.Scanln(&input)
@@ -97,11 +99,7 @@ func TakeTurn(p Player, b *Board) int {
 		return -1
 	}
 	if tile == 0 {
-		gs := Gamestate{
-			B:      *b,
-			ToPlay: p,
-		}
-		saveGame(&gs)
+		saveGame(gs)
 		println("Partie sauvegardée")
 		fmt.Scanln()
 		os.Exit(0)
@@ -112,11 +110,11 @@ func TakeTurn(p Player, b *Board) int {
 	}
 	x := (tile - 1) / BoardSize
 	y := (tile - 1) % BoardSize
-	if (*b)[x][y] != NullPlayer {
+	if (gs.Board)[x][y] != NullPlayer {
 		println("Case non vide")
 		return -1
 	}
-	(*b)[x][y] = p
+	(gs.Board)[x][y] = gs.ToPlay
 	return 1
 }
 
@@ -195,18 +193,18 @@ func loadGame(gs *Gamestate) error {
 // playGame fait jouer une partie et renvoie le numéro du joueurs gagnant, ou -1 en cas de nulle
 func playGame(gs *Gamestate) Player {
 	for {
-		n := TakeTurn(gs.ToPlay, &gs.B)
+		n := TakeTurn(gs)
 		if n == -1 {
 			continue
 		}
-		if isOver(gs.B) != NullPlayer {
-			PrintBoard(gs.B)
-			winningPlayer := isOver(gs.B)
+		if isOver(gs.Board) != NullPlayer {
+			PrintBoard(gs.Board)
+			winningPlayer := isOver(gs.Board)
 			fmt.Printf("Le joueur %d a gagné, ", winningPlayer+1)
 			return winningPlayer
 		}
-		if isNull(gs.B) {
-			PrintBoard(gs.B)
+		if isNull(gs.Board) {
+			PrintBoard(gs.Board)
 			print("Partie nulle, ")
 			return NullPlayer
 		}
@@ -219,28 +217,36 @@ func main() {
 	gs := Gamestate{}
 	err := loadGame(&gs)
 	if err != nil {
-		emptyGamestate(&gs)
+		resetBoard(&gs)
 	}
 	os.WriteFile("save.json", []byte{}, 0644)
-	score := []int{0, 0}
 	for {
 		switch playGame(&gs) {
 		case Player1:
-			score[0] += 1
+			gs.Score[0] += 1
 		case Player2:
-			score[1] += 1
+			gs.Score[1] += 1
 		}
-		println("score : ", score[0], " - ", score[1])
+		println("score : ", gs.Score[0], " - ", gs.Score[1])
 	out:
 		for {
-			println("1 - Rejouer\n2 - Quitter")
+			println("1 - Rejouer\n" +
+				"2 - Sauvegarder\n" +
+				"3 - Quitter")
 			var rep string
 			fmt.Scanln(&rep)
 			switch rep {
+
 			case "1":
-				emptyGamestate(&gs)
+				resetBoard(&gs)
 				break out
 			case "2":
+				resetBoard(&gs)
+				saveGame(&gs)
+				println("Partie sauvegardée")
+				fmt.Scanln()
+				os.Exit(0)
+			case "3":
 				os.Exit(0)
 			}
 
